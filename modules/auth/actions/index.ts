@@ -30,6 +30,17 @@ export async function getCurrentUserWithRole() {
       where: { id: session.user.id },
       data: { role: "ADMIN" },
     });
+  } else if (!adminEmail) {
+    const firstUser = await prisma.user.findFirst({
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { id: true },
+    });
+    if (firstUser?.id === session.user.id) {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { role: "ADMIN" },
+      });
+    }
   }
 
   const dbUser = await prisma.user.findUnique({
