@@ -24,6 +24,14 @@ export async function getCurrentUserWithRole() {
     return null;
   }
 
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  if (adminEmail && session.user.email.toLowerCase() === adminEmail) {
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { role: "ADMIN" },
+    });
+  }
+
   const dbUser = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { role: true },

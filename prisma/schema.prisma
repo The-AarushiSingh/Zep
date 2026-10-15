@@ -17,16 +17,53 @@ model Test {
   name String
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  AGENT
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  REQUESTED
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum OrderStatus {
+  PLACED
+  PACKED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
 model User {
-  id            String    @id
-  name          String
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+  id              String         @id
+  name            String
+  email           String
+  emailVerified   Boolean        @default(false)
+  image           String?
+  role            UserRole       @default(USER)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  sessions        Session[]
+  accounts        Account[]
+  conversations   Conversation[]
+  tickets         Ticket[]
+  assignedTickets Ticket[]       @relation("TicketAssignee")
+  orders          Order[]
 
   @@unique([email])
   @@map("user")
@@ -78,4 +115,85 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  title     String
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  tickets   Ticket[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, updatedAt])
+  @@map("conversation")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  content        String
+  role           MessageRole
+  authorName     String?
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("message")
+}
+
+model Ticket {
+  id             String         @id @default(cuid())
+  title          String
+  description    String
+  reason         String
+  priority       TicketPriority @default(MEDIUM)
+  status         TicketStatus   @default(REQUESTED)
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  assigneeId     String?
+  assignee       User?          @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([status, priority])
+  @@index([conversationId, status])
+  @@map("ticket")
+}
+
+model Order {
+  id               String      @id @default(cuid())
+  number           String
+  userId           String
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           OrderStatus
+  totalRupees      Int
+  placedAt         DateTime
+  etaLabel         String?
+  deliveryNote     String?
+  refundEligible   Boolean     @default(false)
+  refundWindowEnds DateTime?
+  isDemo           Boolean     @default(true)
+  items            OrderItem[]
+  createdAt        DateTime    @default(now())
+
+  @@unique([userId, number])
+  @@index([userId])
+  @@map("order")
+}
+
+model OrderItem {
+  id       String @id @default(cuid())
+  orderId  String
+  order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  name     String
+  quantity Int
+
+  @@index([orderId])
+  @@map("order_item")
 }
